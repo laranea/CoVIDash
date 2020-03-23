@@ -14,6 +14,13 @@ function Argsort(A) {
     return Ind;
 }
 
+function Arange(n) {
+    var X = new Array(n);
+    for (var i = 0; i < n; i++)
+        X[i] = i;
+    return X
+}
+
 function LoadData() {
     Plotly.d3.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv",
     function(err, rows) {
@@ -146,13 +153,15 @@ function Plot(tr) {
 }
 
 function ToLab(S) {
-    var ss = S.split(' ');
-    if (ss.length <= 1)
+    var sfx = ', South'
+    if      (S.endsWith(sfx))
+        S = 'South ' + S.slice(0, S.length - sfx.length);
+    else if (S === 'United Kingdom')
+        S = 'UK';
+    S = S.replace(/[^ 0-9a-zA-Z]/g, '');
+    if (S.length < 12)
         return S;
-    var n = '';
-    for (var i = 0; i < ss.length; i++)
-        n += (ss[i].length > 0) ? ss[i][0] : '';
-    return n;
+    return S.slice(0, 12) + '...';
 }
 
 function Update() {
@@ -170,27 +179,23 @@ function Update() {
     if ((cr1 === null) || (cr2 === null))
         return Plot([]);
 
-    var c1f = false;
-    var c2f = false;
-    var X1 = [];
-    var X2 = [];
-    var rv1 = [];
-    var rv2 = [];
+    var c1i = null;
+    var c2i = null;
     // Only keep from date of first death
-    for (var i = 0; i <    cr1.length; i++) {
-        c1f = c1f || (cr1[i] > 0);
-        if (c1f) {
-            rv1.push(cr1[i]);
-            X1.push(X1.length);
-        }
+    for (var i = 0; (i < cr1.length) && ((c1i === null) || (c2i === null)); i++) {
+        if ((c1i === null) && (cr1[i] > 0))
+            c1i = i;
         
-        c2f = c2f || (cr2[i] > 0);
-        if (c2f) {
-            rv2.push(cr2[i]);
-            X2.push(X2.length);
-        }
+        if ((c2i === null) && (cr2[i] > 0))
+            c2i = i;
     }
 
+    var rv1 = cr1.slice(c1i);
+    var rv2 = cr2.slice(c2i);
+    var X1  = Arange(rv1.length);
+    var X2  = Arange(rv2.length);
+
+    // Swap so longer sequence comes first
     if (rv2.length > rv1.length) {
         var tmp = rv2;
         rv2 = rv1;
@@ -204,12 +209,9 @@ function Update() {
         X2  = X1;
         X1 = tmp;
     }
-
-
-    for (var i = 0; i < rv2.length; i++)
         
     // Projections from rv1 onto rv2
-    var rv3 = [];
+    var rv3 = new Array(rv1.length);
     var di1 = 0.;
     var di2 = 0.;
     var di3 = 0.;
@@ -219,12 +221,12 @@ function Update() {
         di2 = di3;
         di3 = (rv1[i] - rv1[i - 1]) / rv1[i - 1];
         if (i < rv2.length) {
-            rv3.push(rv2[i]);
+            rv3[i] = rv2[i];
             continue;
         }
 
-        var nv = rv3[i - 1] + rv3[i - 1] * (di1 + di2 + di3) / 3.;
-        rv3.push(Math.floor(nv));
+        var nv = rv3[i - 1] + rv3[i - 1] * (di1 * 0.5 + di2 * 0.3 + di3 * 0.2);
+        rv3[i] = Math.floor(nv);
     }
 
     var trace1 = {
