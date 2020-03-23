@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html style="height: 100%; width: 100%;">
+<head>
+    <meta charset="utf-8"/>
+	<!-- Load plotly.js into the DOM -->
+	<script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+    <script src='CoVIDash.js'></script>
+</head>
+
+<body style="height: 100%; width: 100%; background: #363636; color: #D0D0D0; overflow: hidden;">
+    <div style="height: 100%; width: 100%;  display:inline; vertical-align: middle; text-align: center; ">
+        <div style="height: 5%; width: 100%; text-align: center">
+            <label for="C1Sel">Country 1:</label>
+            <select name="C1Opt" id="C1Sel" onChange="Update();">
+                <option value="">--Select One--</option>
+            </select>
+
+
+            <label for="C2Sel">Country 2:</label>
+            <select name="C2Opt" id="C2Sel"" onChange="Update();">
+                <option value="">--Select Two--</option>
+            </select>
+        </div>
+
+        <div style="height: 95%; width: 100%; text-align: center; vertical-align: middle;">
+            <div id='PlotDiv' style="height: 100%; width: 95%; text-align: center; margin-left: auto; margin-right: auto;"></div>
+        </div>
+    </div>
+</body>
+</html>
