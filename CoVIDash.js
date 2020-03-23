@@ -38,29 +38,35 @@ function LoadData() {
         for (var i = 0; i < rows.length; i++) {
             var clab = ToLab(rows[i]['Country/Region']);
             var cri = DM[clab] || null;
-            if (cri === null) {
-                cri = [];
-                for (j = 0; j < DL.length; ++j)
-                    cri.push(0);
-            }
+            if (cri === null)
+                cri = Zeros(DL.length);
             for (var j = 0; j < DCN.length; j++)
                 cri[j] += Number.parseInt(rows[i][DCN[j]]);
             DM[clab] = cri;
         }
-        CN = Object.keys(DM);
-        var ca = new Array(CN.length);
-        for (var i = 0; i < CN.length; i++) {
-            var cri = DM[CN[i]];
-            ca[i] = 0;
+
+        // Global counts
+        var SCN = Object.keys(DM);
+        var glb = Zeros(DL.length);
+        for (var i = 0; i < SCN.length; i++) {
+            var cri = DM[SCN[i]];
+            for (var j = 0; j < cri.length; j++)
+                glb[j] += cri[j];
+        }
+        DM['Global'] = glb;
+        
+        // Sort country names by number of deaths
+        SCN = Object.keys(DM);
+        var ca = Zeros(SCN.length);
+        for (var i = 0; i < SCN.length; i++) {
+            var cri = DM[SCN[i]];
             for (var j = 0; j < cri.length; j++)
                 ca[i] += cri[j];
         }
-        // Sort country names by number of deaths
         var SO = Argsort(ca);
-        var SCN = new Array(CN.length);
+        CN = new Array(SCN.length);
         for (var i = 0; i < CN.length; i++)
-            SCN[i] = CN[SO[CN.length - i - 1]];
-        CN = SCN;
+            CN[i] = SCN[SO[SCN.length - i - 1]];
         
         loaded = true;
     });
@@ -135,7 +141,7 @@ function Initialize() {
 function Plot(tr) {
     if (document.getElementById('PlotDiv') === null)
         return 1;
-    Plotly.newPlot('PlotDiv', tr, GetLayout());
+    Plotly.newPlot('PlotDiv', tr, GetLayout(), {responsive: true});
     return 0;
 }
 
@@ -249,5 +255,12 @@ function Update() {
     }
 
     Plot([trace1, trace2, trace3]);
+}
+
+function Zeros(n) {
+    var X = new Array(n);
+    for (var i = 0; i < n; i++)
+        X[i] = 0;
+    return X;
 }
 
