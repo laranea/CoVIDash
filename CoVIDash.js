@@ -102,7 +102,7 @@ function GetLayout() {
             rangeslider: {visible: true},
             type: 'integer',
             title: {
-                text: 'Day Offset',
+                text: 'Day Offset (Aligned to First Death)',
                 font: {color: '#D0D0D0', size: 18}
             },
             tickfont: { size: 16 }
@@ -164,99 +164,103 @@ function ToLab(S) {
     return S.slice(0, 12) + '...';
 }
 
+function GetCountryData(cn) {
+    var cr = DM[cn] || null;
+    if (cr === null)
+        return null;
+    
+    // Only keep from date of first death
+    var ci = cr.length;
+    for (var i = 0; i < cr.length; i++) {
+        if (cr[i] > 0) {
+            ci = i;
+            break;
+        }
+    }
+
+    return cr.slice(ci);
+}
+
 function Update() {
     var s1 = document.getElementById('C1Sel');
     var s2 = document.getElementById('C2Sel');
-    if ((s1 === null) || (s2 === null) || (s1.selectedIndex <= 0) || (s2.selectedIndex <= 0) || !loaded)
+    if ((s1 === null) || (s2 === null) || ((s1.selectedIndex <= 0) && (s2.selectedIndex <= 0)) || !loaded)
         return Plot([]);
 
     var c1 = s1.options[s1.selectedIndex].text;
     var c2 = s2.options[s2.selectedIndex].text;
-
-    var cr1 = DM[c1] || null;
-    var cr2 = DM[c2] || null;
-
-    if ((cr1 === null) || (cr2 === null))
-        return Plot([]);
-
-    var c1i = null;
-    var c2i = null;
-    // Only keep from date of first death
-    for (var i = 0; (i < cr1.length) && ((c1i === null) || (c2i === null)); i++) {
-        if ((c1i === null) && (cr1[i] > 0))
-            c1i = i;
-        
-        if ((c2i === null) && (cr2[i] > 0))
-            c2i = i;
-    }
-
-    var rv1 = cr1.slice(c1i);
-    var rv2 = cr2.slice(c2i);
-    var X1  = Arange(rv1.length);
-    var X2  = Arange(rv2.length);
-
-    // Swap so longer sequence comes first
-    if (rv2.length > rv1.length) {
-        var tmp = rv2;
-        rv2 = rv1;
-        rv1 = tmp;
-        
-        tmp = c2;
-        c2  = c1;
-        c1  = tmp;
-
-        tmp = X2;
-        X2  = X1;
-        X1 = tmp;
-    }
+    var rv1 = GetCountryData(c1);
+    var rv2 = GetCountryData(c2);
         
     // Projections from rv1 onto rv2
-    var rv3 = new Array(rv1.length);
-    var di1 = 0.;
-    var di2 = 0.;
-    var di3 = 0.;
-    for (var i = 0; i < rv1.length; i++) {
-        // Smooth growth rate
-        di1 = di2;
-        di2 = di3;
-        di3 = (rv1[i] - rv1[i - 1]) / rv1[i - 1];
-        if (i < rv2.length) {
-            rv3[i] = rv2[i];
-            continue;
+    var rv3 = null;
+    if (rv1 && rv2) {
+        // Swap so longer sequence comes first
+        if (rv2.length > rv1.length) {
+            var tmp = rv2;
+            rv2 = rv1;
+            rv1 = tmp;
+            
+            tmp = c2;
+            c2  = c1;
+            c1  = tmp;
         }
 
-        var nv = rv3[i - 1] + rv3[i - 1] * (di1 * 0.5 + di2 * 0.3 + di3 * 0.2);
-        rv3[i] = Math.floor(nv);
+        rv3 = new Array(rv1.length);
+        var di1 = 0.;
+        var di2 = 0.;
+        var di3 = 0.;
+        for (var i = 0; i < rv1.length; i++) {
+            // Smooth growth rate
+            di1 = di2;
+            di2 = di3;
+            di3 = (rv1[i] - rv1[i - 1]) / rv1[i - 1];
+            if (i < rv2.length) {
+                rv3[i] = rv2[i];
+                continue;
+            }
+
+            var nv = rv3[i - 1] + rv3[i - 1] * (di1 * 0.5 + di2 * 0.3 + di3 * 0.2);
+            rv3[i] = Math.floor(nv);
+        }
     }
 
-    var trace1 = {
-        type: "scatter",
-        mode: "lines",
-        name: c1,
-        x: X1,
-        y: rv1,
-        line: {color: '#A03020', width: 5}
+    var tra = [];
+
+    if (rv1) {
+        tra.push({
+            type: "scatter",
+            mode: "lines",
+            name: c1,
+            x: Arange(rv1.length),
+            y: rv1,
+            line: {color: '#A03020', width: 5}
+        });
     }
 
-    var trace2 = {
-        type: "scatter",
-        mode: "lines",
-        name: c2,
-        x: X2,
-        y: rv2,
-        line: {color: '#7F7F7F', width: 5}
+    if (rv2) {
+        tra.push({
+            type: "scatter",
+            mode: "lines",
+            name: c2,
+            x: Arange(rv2.length),
+            y: rv2,
+            line: {color: '#7F7F7F', width: 5}
+        });
     }
 
-    var trace3 = {
-        type: "scatter",
-        mode: "lines",
-        name: c2 + '-Pred',
-        x: X1,
-        y: rv3,
-        line: {color: '#7F7F7F', dash: 'dot', width: 5}
+    if (rv3) {
+        tra.push({
+            type: "scatter",
+            mode: "lines",
+            name: c2 + '-Pred',
+            x: Arange(rv3.length),
+            y: rv3,
+            line: {color: '#7F7F7F', dash: 'dot', width: 5}
+        });
     }
 
-    Plot([trace1, trace2, trace3]);
+    Plot(tra);
 }
 
 function Zeros(n) {
