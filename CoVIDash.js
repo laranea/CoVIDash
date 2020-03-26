@@ -21,6 +21,20 @@ function Arange(n) {
     return X
 }
 
+function Clip(y, n, x) {
+  return Math.max(n, Math.min(y, x));
+}
+
+function Diff(X) {
+    var Y = new Array(X.length);
+    if (Y.length <= 0)
+        return Y;
+    Y[0] = X[0];
+    for (var i = 1; i < Y.length; i++)
+        Y[i] = X[i] - X[i - 1];
+    return Y;
+}
+
 function LoadData() {
     Plotly.d3.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv",
     function(err, rows) {
@@ -91,7 +105,8 @@ function GetOpt(id) {
 function GetLayout() {
     var s1 = GetOpt('C1Sel');
     var s2 = GetOpt('C2Sel');
-    var ttl = ((s1 !== '') && (s2 !== '')) ? `<b style="font-size: 1.5em">Projecting CoVID-19 Death Rate from ${s1} to ${s2}</b>` : `<b style="font-size: 1.5em">Projecting CoVID-19 Death Rate</b>`
+    var cb = document.getElementById('SumCB');
+    var ttl = ((s1 !== '') && (s2 !== '')) ? `<b style="font-size: 1.5em">Projecting CoVID-19 Death Rate from ${s1} to ${s2}</b>` : `<b style="font-size: 1.5em">CoVID-19 Deaths</b>`
 
     return {
         plot_bgcolor: "#323232",
@@ -111,7 +126,7 @@ function GetLayout() {
             autorange: true,
             type: 'linear',
             title: {
-                text: 'Total Deaths',
+                text: cb.checked ? 'Total Deaths' : 'Daily Deaths',
                 font: {color: '#D0D0D0', size: 18}
             },
             tickfont: { size: 16 }
@@ -121,7 +136,6 @@ function GetLayout() {
 }
 
 function Initialize() {
-    Plot([]);
 
     if (!loaded) {
         setTimeout(Initialize, 512);
@@ -143,6 +157,8 @@ function Initialize() {
         Oi.innerHTML = CN[i];
         s2.appendChild(Oi);
     }
+    s1.options[1].selected = true;
+    Update();
 }
 
 function Plot(tr) {
@@ -184,14 +200,15 @@ function GetCountryData(cn) {
 function Update() {
     var s1 = document.getElementById('C1Sel');
     var s2 = document.getElementById('C2Sel');
-    if ((s1 === null) || (s2 === null) || ((s1.selectedIndex <= 0) && (s2.selectedIndex <= 0)) || !loaded)
+    var cb = document.getElementById('SumCB');
+    if ((s1 === null) || (s2 === null) || (c1 === null) || ((s1.selectedIndex <= 0) && (s2.selectedIndex <= 0)) || !loaded)
         return Plot([]);
 
     var c1 = s1.options[s1.selectedIndex].text;
     var c2 = s2.options[s2.selectedIndex].text;
     var rv1 = GetCountryData(c1);
     var rv2 = GetCountryData(c2);
-        
+
     // Projections from rv1 onto rv2
     var rv3 = null;
     if (rv1 && rv2) {
@@ -210,18 +227,18 @@ function Update() {
         var di1 = 0.;
         var di2 = 0.;
         var di3 = 0.;
+        var di4 = 0.;
         for (var i = 0; i < rv1.length; i++) {
             // Smooth growth rate
             di1 = di2;
             di2 = di3;
-            di3 = (rv1[i] - rv1[i - 1]) / rv1[i - 1];
+            di3 = di4;
+            di4 = Clip((rv1[i] - rv1[i - 1]) / rv1[i - 1], -3, 3);
             if (i < rv2.length) {
                 rv3[i] = rv2[i];
                 continue;
             }
-
-            var nv = rv3[i - 1] + rv3[i - 1] * (di1 * 0.5 + di2 * 0.3 + di3 * 0.2);
-            rv3[i] = Math.floor(nv);
+            rv3[i] = Math.floor(rv3[i - 1] * (1 + WSum(di1, di2, di3, di4)));
         }
     }
 
@@ -233,8 +250,8 @@ function Update() {
             mode: "lines",
             name: c1,
             x: Arange(rv1.length),
-            y: rv1,
-            line: {color: '#A03020', width: 5}
+            y: cb.checked ? rv1 : Diff(rv1),
+            line: {color: '#B03020', width: 5}
         });
     }
 
@@ -244,8 +261,8 @@ function Update() {
             mode: "lines",
             name: c2,
             x: Arange(rv2.length),
-            y: rv2,
-            line: {color: '#7F7F7F', width: 5}
+            y: cb.checked ? rv2 : Diff(rv2),
+            line: {color: '#909090', width: 5}
         });
     }
 
@@ -255,12 +272,20 @@ function Update() {
             mode: "lines",
             name: c2 + '-Pred',
             x: Arange(rv3.length),
-            y: rv3,
-            line: {color: '#7F7F7F', dash: 'dot', width: 5}
+            y: cb.checked ? rv3 : Diff(rv3),
+            line: {color: '#909090', dash: 'dot', width: 5}
         });
     }
 
     Plot(tra);
+}
+
+function NumFilt(x) {
+    return (Number.isFinite(x) && !Number.isNaN(x)) ? x : 0.;
+}
+
+function WSum(x1, x2, x3, x4) {
+    return NumFilt(x4) * 0.4 + NumFilt(x3) * 0.3 + NumFilt(x2) * 0.2 + NumFilt(x1) * 0.1;
 }
 
 function Zeros(n) {
